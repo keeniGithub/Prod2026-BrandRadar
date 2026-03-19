@@ -1,0 +1,24 @@
+# Исключаем зависимости — они устанавливаются внутри образа
+node_modules
+
+# Исключаем артефакты предыдущих сборок
+.next
+out
+
+# Исключаем файлы окружения с секретами
+.env
+.env.*
+!.env.example
+
+# Исключаем файлы разработчика и CI
+.git
+.gitignore
+.gitlab-ci.yml
+.dockerignore
+README.md
+
+# Исключаем конфиги IDE и ОС
+.vscode
+.idea
+.DS_Store
+Thumbs.db

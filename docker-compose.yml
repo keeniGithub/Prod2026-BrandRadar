@@ -1,0 +1,15 @@
+services:
+  frontend:
+    image: "${DOCKER_IMAGE}"
+    restart: unless-stopped
+    networks:
+      - web
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API=${NEXT_PUBLIC_API}
+      - NEXT_PUBLIC_ML=${NEXT_PUBLIC_ML}
+      - NEXT_PUBLIC_PROJECT_ID=${NEXT_PUBLIC_PROJECT_ID}
+
+networks:
+  web:
+    external: true

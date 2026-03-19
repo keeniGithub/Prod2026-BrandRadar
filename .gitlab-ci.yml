@@ -1,0 +1,190 @@
+# Пайплайн CI/CD для Next.js фронтенда.
+# Этапы: lint → build → docker → deploy.
+# Деплой выполняется только из ветки по умолчанию (обычно main/master).
+
+# Глобальное управление запуском пайплайна:
+# Если на ветку открыт мердж реквест — запускается только MR-пайплайн.
+# Это предотвращает двойной запуск lint/build при мерже MR в дефолтную ветку:
+# без этого GitLab создавал бы два пайплайна — один по merge_request_event,
+# другой по push в дефолтную ветку.
+workflow:
+  rules:
+    # Запускать пайплайн для мердж реквестов
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    # Запускать пайплайн для пушей в дефолтную ветку,
+    # но только если пайплайн не запущен как MR-пайплайн
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "merge_request_event"
+
+image: node:22-alpine
+
+variables:
+  # Директория кэша npm для ускорения повторных установок зависимостей
+  NPM_CACHE_DIR: "$CI_PROJECT_DIR/.cache/npm"
+  # Тег образа включает короткий SHA коммита для однозначной идентификации
+  IMAGE_TAG: "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
+
+stages:
+  - lint
+  - test
+  - build
+  - docker
+  - deploy
+
+# Глобальный кэш node_modules привязан к package-lock.json,
+# чтобы при изменении зависимостей кэш инвалидировался автоматически
+cache:
+  key:
+    files:
+      - package-lock.json
+  paths:
+    - .cache/npm
+  policy: pull-push
+
+# ─── LINT ────────────────────────────────────────────────────────────────────
+
+lint:
+  stage: lint
+  before_script:
+    - npm ci --cache "$NPM_CACHE_DIR" --prefer-offline
+  script:
+    # Запускаем ESLint явно с указанием директории src, чтобы flat config
+    # гарантированно подхватил все файлы; --max-warnings 0 превращает
+    # любое предупреждение в ошибку пайплайна
+    - npx eslint src --max-warnings 0
+  # Запускаем lint при любом пайплайне (MR или дефолтная ветка),
+  # но только если изменились файлы, влияющие на линтинг.
+  # Фильтрация по типу пайплайна выполняется на уровне workflow.
+  rules:
+    - changes:
+        - "**/*.ts"
+        - "**/*.tsx"
+        - "**/*.js"
+        - "**/*.mjs"
+        - eslint.config.mjs
+        - package.json
+        - package-lock.json
+  allow_failure: true
+
+# ─── TEST ────────────────────────────────────────────────────────────────────
+
+test:
+  stage: test
+  needs:
+    - job: lint
+      optional: true
+  before_script:
+    - npm ci --cache "$NPM_CACHE_DIR" --prefer-offline
+  script:
+    - npm test
+  # Публикуем отчёт покрытия в формате Cobertura — GitLab отображает его
+  # во вкладке Coverage на странице MR и в виджете покрытия репозитория.
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage/cobertura-coverage.xml
+    when: always
+    expire_in: 7 days
+  coverage: '/^All files\s+\|\s+[\d.]+/'
+  rules:
+    - when: always
+
+# ─── BUILD ───────────────────────────────────────────────────────────────────
+
+build:
+  stage: build
+  # Запускаем build только после успешного прохождения тестов.
+  # lint опциональный — пропускается если не было изменений в JS/TS-файлах.
+  needs:
+    - job: test
+    - job: lint
+      optional: true
+  before_script:
+    - npm ci --cache "$NPM_CACHE_DIR" --prefer-offline
+  script:
+    # next build проверяет типы TypeScript и создаёт продакшен-артефакт.
+    # Этот шаг нужен для раннего обнаружения ошибок компиляции в CI —
+    # до запуска Kaniko, чтобы не тратить время на сборку образа при сломанном коде.
+    - npm run build
+  # Артефакт НЕ передаётся в Kaniko — образ собирается полностью внутри Docker
+  # с нуля, используя инструкции Dockerfile (включая npm ci + npm run build).
+  # Это гарантирует воспроизводимость образа независимо от CI-окружения.
+  # Запускаем build при любом пайплайне (MR или дефолтная ветка).
+  # Фильтрация по типу пайплайна выполняется на уровне workflow.
+  # Правило без условия — джоб всегда активен в рамках разрешённых пайплайнов.
+  rules:
+    - when: always
+
+# ─── DOCKER ──────────────────────────────────────────────────────────────────
+
+docker:
+  stage: docker
+  needs: [build]
+  # Kaniko не требует Docker-демона — работает в непривилегированных Kubernetes-подах
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    entrypoint: [""]
+  script:
+    # Формируем конфигурацию аутентификации реестра в формате, понятном Kaniko
+    - mkdir -p /kaniko/.docker
+    - >
+      printf '{"auths":{"%s":{"username":"%s","password":"%s"}}}\n'
+      "$CI_REGISTRY" "$CI_REGISTRY_USER" "$CI_REGISTRY_PASSWORD"
+      > /kaniko/.docker/config.json
+    - >
+      /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/Dockerfile"
+      --build-arg "NEXT_PUBLIC_API=${NEXT_PUBLIC_API}"
+      --build-arg "NEXT_PUBLIC_ML=${NEXT_PUBLIC_ML}"
+      --build-arg "NEXT_PUBLIC_PROJECT_ID=${NEXT_PUBLIC_PROJECT_ID}"
+      --destination "${IMAGE_TAG}"
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# ─── DEPLOY ──────────────────────────────────────────────────────────────────
+
+deploy:
+  stage: deploy
+  needs: [docker]
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache openssh-client
+    # Проверяем наличие обязательных переменных окружения до начала работы
+    - |
+      for VAR in SSH_PRIVATE_KEY DEPLOY_HOST DEPLOY_USER; do
+        eval "VAL=\$$VAR"
+        if [ -z "$VAL" ]; then
+          echo "ERROR: Required CI variable '$VAR' is not set or empty." >&2
+          exit 1
+        fi
+      done
+    - mkdir -p ~/.ssh
+    # Используем printf для корректной записи многострочного ключа
+    - printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    # Очищаем переменную DEPLOY_HOST от возможных невидимых символов (CRLF, пробелы),
+    # которые могут появиться при вводе значения секрета в интерфейсе GitLab
+    - DEPLOY_HOST="$(printf '%s' "$DEPLOY_HOST" | tr -d '[:space:]')"
+    # Добавляем хост в known_hosts для предотвращения интерактивного подтверждения
+    - ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+  script:
+    - scp -i ~/.ssh/id_rsa docker-compose.yml "$DEPLOY_USER@$DEPLOY_HOST:~/docker-compose.yml"
+    - |
+      # Используем bash -lc для запуска login-shell на удалённом хосте,
+      # чтобы $PATH корректно включал /usr/local/bin и другие директории,
+      # где может находиться Docker. Без флага -l SSH открывает non-login shell,
+      # в котором не выполняются /etc/profile и ~/.bash_profile,
+      # из-за чего docker может быть недоступен даже при корректной установке.
+      ssh -i ~/.ssh/id_rsa "$DEPLOY_USER@$DEPLOY_HOST" bash -lc "
+        set -euo pipefail
+        export DOCKER_IMAGE='$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA'
+        export NEXT_PUBLIC_API='$NEXT_PUBLIC_API'
+        export NEXT_PUBLIC_ML='$NEXT_PUBLIC_ML'
+        export NEXT_PUBLIC_PROJECT_ID='$NEXT_PUBLIC_PROJECT_ID'
+        docker login -u '$CI_REGISTRY_USER' -p '$CI_REGISTRY_PASSWORD' '$CI_REGISTRY'
+        docker compose pull
+        docker compose up -d
+      "
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

@@ -1,0 +1,21 @@
+{
+  "name": "BrandRadar",
+  "short_name": "BrandRadar",
+  "description": "Ищи и анализируй упоминания своего бренда в интернете",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#e8f2ec",
+  "theme_color": "#47bf5f",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
