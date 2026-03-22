@@ -17,7 +17,7 @@ pipeline {
     stage('Deploy') {
       steps {
         sh 'docker rm -f brandradar || true'
-        sh 'docker run -d --name brandradar -p 80:80 --restart unless-stopped brandradar:latest'
+        sh 'docker run -d --name brandradar -p 6767:6767 --restart unless-stopped brandradar:latest'
       }
     }
   }

@@ -13,5 +13,5 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=builder /app .
-EXPOSE 80
-CMD ["npm", "run", "start", "--", "-p", "80", "-H", "0.0.0.0"]
+EXPOSE 6767
+CMD ["npm", "run", "start", "--", "-p", "6767", "-H", "0.0.0.0"]
