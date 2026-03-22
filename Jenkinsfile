@@ -39,25 +39,19 @@ pipeline {
     stage('Install') {
       steps {
         // Оборачиваем в ansiColor для цветного вывода npm
-        ansiColor('xterm') {
-          sh 'npm ci'
-        }
+        sh 'npm ci'
       }
     }
 
     stage('Lint') {
       steps {
-        ansiColor('xterm') {
-          sh 'npm run lint'
-        }
+        sh 'npm run lint'
       }
     }
 
     stage('Test') {
       steps {
-        ansiColor('xterm') {
-          sh 'npm run test:coverage'
-        }
+        sh 'npm run test:coverage'
       }
       post {
         always {
@@ -68,9 +62,7 @@ pipeline {
 
     stage('Build App') {
       steps {
-        ansiColor('xterm') {
-          sh 'npm run build'
-        }
+        sh 'npm run build'
       }
     }
 
@@ -79,18 +71,16 @@ pipeline {
         script {
           env.IMAGE_TAG = "${env.BUILD_NUMBER}-${env.GIT_COMMIT.take(7)}"
         }
-        // Вывод docker build тоже лучше раскрашивать
-        ansiColor('xterm') {
-          sh '''
-            docker build \
-              --build-arg NEXT_PUBLIC_API=${NEXT_PUBLIC_API} \
-              --build-arg NEXT_PUBLIC_ML=${NEXT_PUBLIC_ML} \
-              --build-arg NEXT_PUBLIC_PROJECT_ID=${NEXT_PUBLIC_PROJECT_ID} \
-              -t ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} \
-              -t ${REGISTRY}/${IMAGE_NAME}:latest \
-              .
-          '''
-        }
+        // Вывод docker build (ansiColor removed)
+        sh '''
+          docker build \
+            --build-arg NEXT_PUBLIC_API=${NEXT_PUBLIC_API} \
+            --build-arg NEXT_PUBLIC_ML=${NEXT_PUBLIC_ML} \
+            --build-arg NEXT_PUBLIC_PROJECT_ID=${NEXT_PUBLIC_PROJECT_ID} \
+            -t ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} \
+            -t ${REGISTRY}/${IMAGE_NAME}:latest \
+            .
+        '''
       }
     }
 
@@ -106,12 +96,10 @@ pipeline {
       }
       steps {
         script {
-          // Оборачиваем весь скрипт с пушем
-          ansiColor('xterm') {
-            docker.withRegistry("https://${env.REGISTRY}", env.DOCKER_CREDENTIALS_ID) {
-              sh 'docker push ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}'
-              sh 'docker push ${REGISTRY}/${IMAGE_NAME}:latest'
-            }
+          // Push docker image (ansiColor removed)
+          docker.withRegistry("https://${env.REGISTRY}", env.DOCKER_CREDENTIALS_ID) {
+            sh 'docker push ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}'
+            sh 'docker push ${REGISTRY}/${IMAGE_NAME}:latest'
           }
         }
       }
@@ -128,21 +116,19 @@ pipeline {
         }
       }
       steps {
-        ansiColor('xterm') {
-          sh '''
-            mkdir -p ${DEPLOY_PATH}
-            cp docker-compose.yml ${DEPLOY_PATH}/docker-compose.yml
-            cd ${DEPLOY_PATH}
+        sh '''
+          mkdir -p ${DEPLOY_PATH}
+          cp docker-compose.yml ${DEPLOY_PATH}/docker-compose.yml
+          cd ${DEPLOY_PATH}
 
-            export DOCKER_IMAGE=${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
-            export NEXT_PUBLIC_API=${NEXT_PUBLIC_API}
-            export NEXT_PUBLIC_ML=${NEXT_PUBLIC_ML}
-            export NEXT_PUBLIC_PROJECT_ID=${NEXT_PUBLIC_PROJECT_ID}
+          export DOCKER_IMAGE=${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+          export NEXT_PUBLIC_API=${NEXT_PUBLIC_API}
+          export NEXT_PUBLIC_ML=${NEXT_PUBLIC_ML}
+          export NEXT_PUBLIC_PROJECT_ID=${NEXT_PUBLIC_PROJECT_ID}
 
-            docker compose pull || true
-            docker compose up -d --remove-orphans
-          '''
-        }
+          docker compose pull || true
+          docker compose up -d --remove-orphans
+        '''
       }
     }
   }
@@ -150,9 +136,7 @@ pipeline {
   post {
     always {
       // Очистка тоже может иметь вывод
-      ansiColor('xterm') {
-        sh 'docker image prune -f || true'
-      }
+      sh 'docker image prune -f || true'
       deleteDir()
     }
     success {
