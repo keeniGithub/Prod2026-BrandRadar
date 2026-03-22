@@ -3,7 +3,7 @@ pipeline {
 
   options {
     timestamps()
-    ansiColor('xterm')
+    // ansiColor('xterm')  <-- УДАЛЕНО: Это вызывает ошибку компиляции
     disableConcurrentBuilds()
     buildDiscarder(logRotator(numToKeepStr: '20'))
   }
@@ -15,7 +15,6 @@ pipeline {
   }
 
   environment {
-    // Set these in Jenkins Global/Folder environment variables or with credentials bindings.
     REGISTRY = 'docker.io'
     IMAGE_NAME = 'your-org/prod-final-brandradar'
 
@@ -24,6 +23,10 @@ pipeline {
     NEXT_PUBLIC_PROJECT_ID = credentials('next-public-project-id')
 
     DOCKER_CREDENTIALS_ID = 'docker-registry-credentials'
+    
+    // Попытка включить цвета для некоторых инструментов через переменные окружения
+    FORCE_COLOR = '1' 
+    CLICOLOR_FORCE = '1'
   }
 
   stages {
@@ -35,19 +38,26 @@ pipeline {
 
     stage('Install') {
       steps {
-        sh 'npm ci'
+        // Оборачиваем в ansiColor для цветного вывода npm
+        ansiColor('xterm') {
+          sh 'npm ci'
+        }
       }
     }
 
     stage('Lint') {
       steps {
-        sh 'npm run lint'
+        ansiColor('xterm') {
+          sh 'npm run lint'
+        }
       }
     }
 
     stage('Test') {
       steps {
-        sh 'npm run test:coverage'
+        ansiColor('xterm') {
+          sh 'npm run test:coverage'
+        }
       }
       post {
         always {
@@ -58,7 +68,9 @@ pipeline {
 
     stage('Build App') {
       steps {
-        sh 'npm run build'
+        ansiColor('xterm') {
+          sh 'npm run build'
+        }
       }
     }
 
@@ -67,15 +79,18 @@ pipeline {
         script {
           env.IMAGE_TAG = "${env.BUILD_NUMBER}-${env.GIT_COMMIT.take(7)}"
         }
-        sh '''
-          docker build \
-            --build-arg NEXT_PUBLIC_API=${NEXT_PUBLIC_API} \
-            --build-arg NEXT_PUBLIC_ML=${NEXT_PUBLIC_ML} \
-            --build-arg NEXT_PUBLIC_PROJECT_ID=${NEXT_PUBLIC_PROJECT_ID} \
-            -t ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} \
-            -t ${REGISTRY}/${IMAGE_NAME}:latest \
-            .
-        '''
+        // Вывод docker build тоже лучше раскрашивать
+        ansiColor('xterm') {
+          sh '''
+            docker build \
+              --build-arg NEXT_PUBLIC_API=${NEXT_PUBLIC_API} \
+              --build-arg NEXT_PUBLIC_ML=${NEXT_PUBLIC_ML} \
+              --build-arg NEXT_PUBLIC_PROJECT_ID=${NEXT_PUBLIC_PROJECT_ID} \
+              -t ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} \
+              -t ${REGISTRY}/${IMAGE_NAME}:latest \
+              .
+          '''
+        }
       }
     }
 
@@ -91,9 +106,12 @@ pipeline {
       }
       steps {
         script {
-          docker.withRegistry("https://${env.REGISTRY}", env.DOCKER_CREDENTIALS_ID) {
-            sh 'docker push ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}'
-            sh 'docker push ${REGISTRY}/${IMAGE_NAME}:latest'
+          // Оборачиваем весь скрипт с пушем
+          ansiColor('xterm') {
+            docker.withRegistry("https://${env.REGISTRY}", env.DOCKER_CREDENTIALS_ID) {
+              sh 'docker push ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}'
+              sh 'docker push ${REGISTRY}/${IMAGE_NAME}:latest'
+            }
           }
         }
       }
@@ -110,26 +128,31 @@ pipeline {
         }
       }
       steps {
-        sh '''
-          mkdir -p ${DEPLOY_PATH}
-          cp docker-compose.yml ${DEPLOY_PATH}/docker-compose.yml
-          cd ${DEPLOY_PATH}
+        ansiColor('xterm') {
+          sh '''
+            mkdir -p ${DEPLOY_PATH}
+            cp docker-compose.yml ${DEPLOY_PATH}/docker-compose.yml
+            cd ${DEPLOY_PATH}
 
-          export DOCKER_IMAGE=${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
-          export NEXT_PUBLIC_API=${NEXT_PUBLIC_API}
-          export NEXT_PUBLIC_ML=${NEXT_PUBLIC_ML}
-          export NEXT_PUBLIC_PROJECT_ID=${NEXT_PUBLIC_PROJECT_ID}
+            export DOCKER_IMAGE=${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+            export NEXT_PUBLIC_API=${NEXT_PUBLIC_API}
+            export NEXT_PUBLIC_ML=${NEXT_PUBLIC_ML}
+            export NEXT_PUBLIC_PROJECT_ID=${NEXT_PUBLIC_PROJECT_ID}
 
-          docker compose pull || true
-          docker compose up -d --remove-orphans
-        '''
+            docker compose pull || true
+            docker compose up -d --remove-orphans
+          '''
+        }
       }
     }
   }
 
   post {
     always {
-      sh 'docker image prune -f || true'
+      // Очистка тоже может иметь вывод
+      ansiColor('xterm') {
+        sh 'docker image prune -f || true'
+      }
       deleteDir()
     }
     success {
