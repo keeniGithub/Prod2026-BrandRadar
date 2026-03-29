@@ -10,18 +10,18 @@
 
 | Компонент | Технология |
 |---|---|
-| Фреймворк | Next.js 15 (App Router, Turbopack) |
-| UI-библиотека | React 19 |
-| Компоненты | shadcn/ui (Radix UI primitives) |
-| Стили | Tailwind CSS v4 |
-| Графики | Recharts 2.15 |
-| HTTP-клиент | Axios 1.13 |
-| SSE | fetch-event-source |
-| Push-уведомления | Web Push API + Service Worker |
-| Язык | TypeScript 5 |
-| Тесты | Vitest 3.2 + React Testing Library |
-| Сборка | Docker (standalone output) |
-| CI/CD | GitLab CI |
+| Фреймворк | [![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=nextdotjs)](https://nextjs.org/) |
+| UI-библиотека | [![React](https://img.shields.io/badge/React-19-20232A?logo=react)](https://react.dev/) |
+| Компоненты | [![shadcn/ui](https://img.shields.io/badge/shadcn%2Fui-Radix_UI-111827)](https://ui.shadcn.com/) |
+| Стили | [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/) |
+| Графики | [![Recharts](https://img.shields.io/badge/Recharts-2.15-FF4B4B)](https://recharts.org/) |
+| HTTP-клиент | [![Axios](https://img.shields.io/badge/Axios-1.13-5A29E4?logo=axios&logoColor=white)](https://axios-http.com/) |
+| SSE | [![fetch-event-source](https://img.shields.io/badge/fetch--event--source-SSE-0EA5E9)](https://github.com/Azure/fetch-event-source) |
+| Push-уведомления | [![Web Push](https://img.shields.io/badge/Web_Push_API-Service_Worker-10B981)](https://developer.mozilla.org/en-US/docs/Web/API/Push_API) |
+| Язык | [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/) |
+| Тесты | [![Vitest](https://img.shields.io/badge/Vitest-3.2-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev/) [![Testing Library](https://img.shields.io/badge/Testing_Library-React-E33332?logo=testinglibrary&logoColor=white)](https://testing-library.com/docs/react-testing-library/intro/) |
+| Сборка | [![Docker](https://img.shields.io/badge/Docker-standalone_output-2496ED?logo=docker&logoColor=white)](https://www.docker.com/) |
+| CI/CD | [![GitLab CI](https://img.shields.io/badge/GitLab_CI-CD-FC6D26?logo=gitlab&logoColor=white)](https://docs.gitlab.com/ci/) |
 
 **Основные разделы приложения:**
 
