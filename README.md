@@ -7,6 +7,7 @@
 **Frontend by Kenyka, URLyata team, Prod 2026**
 
 Backend: https://github.com/KenykaGit/BrandRadar-backend (by LeyViaFun & Emeri_k)
+
 ML: https://github.com/KenykaGit/BrandRadar-ML (by f4rceful)
 
 ## стек
